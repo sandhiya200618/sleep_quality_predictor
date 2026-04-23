@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SleepSense — Sleep Quality Predictor</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+<div class="container">
+  <!-- Header -->
+  <header>
+    <span class="moon-icon">🌙</span>
+    <h1>SleepSense</h1>
+    <p>A smart, science-backed way to monitor and improve your sleep</p>
+  </header>
+  <!-- Algorithm selector -->
+  <div class="algo-bar">
+    <span class="algo-label">Algorithm:</span>
+    <div class="algo-tabs" id="algo-tabs">
+      <button class="algo-tab active" data-algo="Random Forest">🌲 Random Forest</button>
+      <button class="algo-tab" data-algo="Decision Tree">🌿 Decision Tree</button>
+      <button class="algo-tab" data-algo="Logistic Regression">📈 Logistic Reg.</button>
+      <button class="algo-tab" data-algo="SVM">⚡ SVM</button>
+    </div>
+  </div>
+  <!-- Section 1: Sleep Basics -->
+  <div class="card" style="--delay:0.1s">
+    <div class="card-title"><span>🛏️</span> Sleep Basics</div>
+    <div class="grid-3">
+      <div class="field">
+        <label>Sleep Duration (hrs)</label>
+        <input type="number" id="sleep_duration" min="0" max="24" step="0.5" placeholder="e.g. 7.5">
+      </div>
+      <div class="field">
+        <label>Bedtime</label>
+        <input type="time" id="bedtime" value="23:00">
+      </div>
+      <div class="field">
+        <label>Wake-up Time</label>
+        <input type="time" id="waketime" value="06:30">
+      </div>
+    </div>
+    <div class="field" style="margin-top:16px;">
+      <label>Sleep Interruptions</label>
+      <div class="radio-group">
+        <label class="radio-btn active" id="no-btn">
+          <input type="radio" name="interruptions" value="no" checked>
+          😴 No — slept through
+        </label>
+        <label class="radio-btn" id="yes-btn">
+          <input type="radio" name="interruptions" value="yes">
+          😮 Yes — woke up during night
+        </label>
+      </div>
+    </div>
+  </div>
+
+  <!-- Section 2: Lifestyle -->
+  <div class="card" style="--delay:0.2s">
+    <div class="card-title"><span>🏃</span> Daily Lifestyle</div>
+    <div class="grid-2">
+      <div class="field">
+        <label>Exercise Duration (min)</label>
+        <input type="number" id="exercise_minutes" min="0" max="300" placeholder="e.g. 30">
+      </div>
+      <div class="field">
+        <label>Screen Time Before Bed (min)</label>
+        <input type="number" id="screen_time" min="0" max="300" placeholder="e.g. 45">
+      </div>
+    </div>
+    <div class="grid-2" style="margin-top:16px;">
+      <div class="field">
+        <label>Caffeine Intake</label>
+        <select id="caffeine">
+          <option value="none">☕ None</option>
+          <option value="low" selected>☕ Low (1 cup)</option>
+          <option value="moderate">☕☕ Moderate (2–3 cups)</option>
+          <option value="high">☕☕☕ High (4+ cups)</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Mood Before Sleep</label>
+        <select id="mood">
+          <option value="happy">😊 Happy</option>
+          <option value="neutral" selected>😐 Neutral</option>
+          <option value="anxious">😰 Anxious</option>
+          <option value="sad">😔 Sad</option>
+        </select>
+      </div>
+    </div>
+    <div class="slider-wrap" style="margin-top:20px;">
+      <div class="slider-header">
+        <label>Stress Level</label>
+        <span class="slider-val" id="stress-display">5</span>
+      </div>
+      <input type="range" id="stress_level" min="0" max="10" value="5"
+             oninput="updateSlider(this,'stress-display')">
+      <div class="slider-ticks">
+        <span>0 — None</span><span>5 — Moderate</span><span>10 — Extreme</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Buttons -->
+  <div class="btn-row">
+    <button class="btn-primary" id="predict-btn" onclick="predict()">
+      <span id="btn-text">🔮 Predict Sleep Quality</span>
+      <span id="btn-loader" style="display:none">⏳ Analysing…</span>
+    </button>
+    <button class="btn-secondary" onclick="resetForm()">↺ Reset</button>
+    <button class="btn-secondary" onclick="togglePanel('history-section')">📋 History</button>
+    <button class="btn-secondary" onclick="togglePanel('accuracy-section');loadAccuracy()">📊 Model Accuracy</button>
+  </div>
+
+  <!-- Result -->
+  <div id="result-section" style="display:none;">
+    <div class="card result-card" style="--delay:0s;">
+      <div class="card-title"><span>✨</span> Prediction Result
+        <span id="result-algo" style="margin-left:auto;font-size:0.75rem;color:var(--muted);font-family:'DM Sans',sans-serif;font-weight:400;"></span>
+      </div>
+
+      <div style="display:flex;flex-wrap:wrap;gap:24px;align-items:center;justify-content:center;">
+        <!-- Score circle -->
+        <div class="score-circle">
+          <svg width="120" height="120" viewBox="0 0 120 120">
+            <circle cx="60" cy="60" r="50" fill="none" stroke="rgba(120,150,255,0.1)" stroke-width="10"/>
+            <circle cx="60" cy="60" r="50" fill="none" stroke="url(#sg)" stroke-width="10"
+                    stroke-linecap="round" id="score-arc"
+                    stroke-dasharray="314" stroke-dashoffset="314"
+                    style="transform:rotate(-90deg);transform-origin:center;transition:stroke-dashoffset 1.2s ease;"/>
+            <defs>
+              <linearGradient id="sg" x1="0%" y1="0%" x2="100%" y2="0%">
+                <stop offset="0%" stop-color="#4d6fff"/>
+                <stop offset="100%" stop-color="#b47bff"/>
+              </linearGradient>
+            </defs>
+          </svg>
+          <div class="score-text">
+            <span class="score-num" id="score-num">—</span>
+            <span class="score-sub">/ 100</span>
+          </div>
+        </div>
+
+        <!-- Quality & confidence -->
+        <div style="text-align:center;">
+          <div class="result-label">Predicted Quality</div>
+          <div class="quality-badge" id="quality-badge">—</div>
+          <div class="proba-bars" id="proba-bars" style="margin-top:14px;"></div>
+        </div>
+
+        <!-- Confidence -->
+        <div class="confidence-block">
+          <div class="result-label">Confidence</div>
+          <div class="conf-num" id="conf-num">—%</div>
+          <div class="confidence-bar"><div class="confidence-fill" id="conf-fill" style="width:0%"></div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Feature importances -->
+    <div class="card" style="--delay:0.05s;">
+      <div class="card-title"><span>📊</span> Feature Importance</div>
+      <div id="factors-container"></div>
+    </div>
+
+    <!-- Tips -->
+    <div class="card" style="--delay:0.1s;">
+      <div class="card-title"><span>💡</span> Personalised Recommendations</div>
+      <div class="tips-grid" id="tips-container"></div>
+    </div>
+  </div>
+
+  <!-- History Panel -->
+  <div id="history-section" style="display:none;">
+    <div class="card" style="--delay:0s;">
+      <div class="card-title"><span>📈</span> Sleep History</div>
+      <div id="history-content">
+        <p class="empty-msg">No history yet. Make your first prediction!</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Model Accuracy Panel -->
+  <div id="accuracy-section" style="display:none;">
+    <div class="card" style="--delay:0s;">
+      <div class="card-title"><span>🤖</span> Model Accuracy Comparison</div>
+      <div id="accuracy-content">
+        <p class="empty-msg">Loading…</p>
+      </div>
+    </div>
+  </div>
+
+  <footer>
+    SleepSense uses supervised ML models trained on synthetic sleep data.<br>
+    For medical concerns, please consult a healthcare professional.
+  </footer>
+</div>
+
+<script src="{{ url_for('static', filename='js/app.js') }}"></script>
+</body>
+</html>
